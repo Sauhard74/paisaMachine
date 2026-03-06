@@ -20,12 +20,14 @@ export interface NewsItemData {
 }
 
 const SOURCE_LABELS: Record<string, string> = {
-  nse_rss: "NSE RSS",
-  bse_rss: "BSE RSS",
   nse_json_api: "NSE API",
   bse_json_api: "BSE API",
   zerodha_pulse: "Zerodha",
-  moneycontrol: "MCntrl",
+  economic_times: "EcoTimes",
+  livemint: "Mint",
+  ndtv_profit: "NDTV",
+  tradingview: "TradView",
+  screener: "Screener",
   twitter_redbox: "Redbox",
   twitter_nse: "NSE Tw",
   twitter_bse: "BSE Tw",

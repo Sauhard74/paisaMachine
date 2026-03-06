@@ -140,7 +140,6 @@ export class ExchangeFetcher {
           Accept:
             "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
           "Accept-Language": "en-US,en;q=0.5",
-          "Accept-Encoding": "gzip, deflate, br",
         },
         redirect: "follow",
       });
@@ -335,10 +334,8 @@ export class ExchangeFetcher {
           "User-Agent": BROWSER_USER_AGENT,
           Accept: "application/json",
           "Accept-Language": "en-US,en;q=0.5",
-          "Accept-Encoding": "gzip, deflate, br",
           Referer: "https://www.bseindia.com/",
           Origin: "https://www.bseindia.com",
-          Cookie: this.bseSession.cookies,
         },
       });
 
@@ -355,10 +352,8 @@ export class ExchangeFetcher {
             "User-Agent": BROWSER_USER_AGENT,
             Accept: "application/json",
             "Accept-Language": "en-US,en;q=0.5",
-            "Accept-Encoding": "gzip, deflate, br",
             Referer: "https://www.bseindia.com/",
             Origin: "https://www.bseindia.com",
-            Cookie: this.bseSession.cookies,
           },
         });
 

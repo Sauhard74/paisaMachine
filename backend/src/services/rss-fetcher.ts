@@ -1,44 +1,50 @@
 /**
- * RSSFetcher - Polls Moneycontrol RSS feeds for financial news
+ * RSSFetcher - Polls financial news RSS feeds
  *
- * Fetches from multiple Moneycontrol RSS feeds every 60 seconds,
- * normalizes items, and feeds them through the onNewItem callback.
+ * Moneycontrol blocks RSS access, so we use alternative sources:
+ * Economic Times, LiveMint, Business Standard, and Google News (India markets)
  */
 
 import Parser from "rss-parser";
-
-export interface RSSRawNewsItem {
-  source: string;
-  headline: string;
-  url: string;
-  published_at: string;
-  raw_content: string;
-  source_id: string;
-}
 
 export class RSSFetcher {
   private parser: Parser;
   private interval: ReturnType<typeof setInterval> | null = null;
 
   private feeds = [
-    { url: "https://www.moneycontrol.com/rss/MCtopnews.xml", source: "moneycontrol" },
-    { url: "https://www.moneycontrol.com/rss/marketreports.xml", source: "moneycontrol" },
-    { url: "https://www.moneycontrol.com/rss/results.xml", source: "moneycontrol" },
-    { url: "https://www.moneycontrol.com/rss/stocksnews.xml", source: "moneycontrol" },
+    // Economic Times - Markets
+    { url: "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms", source: "economic_times" },
+    // Economic Times - Stocks News
+    { url: "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms", source: "economic_times" },
+    // LiveMint - Markets
+    { url: "https://www.livemint.com/rss/markets", source: "livemint" },
+    // NDTV Profit - Latest
+    { url: "https://feeds.feedburner.com/ndtvprofit-latest", source: "ndtv_profit" },
   ];
 
-  constructor(private onNewItem: (item: RSSRawNewsItem) => Promise<void>) {
+  constructor(
+    private onNewItem: (item: {
+      source: string;
+      headline: string;
+      url: string;
+      published_at: string;
+      raw_content: string;
+      source_id: string;
+    }) => Promise<void>
+  ) {
     this.parser = new Parser({
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept: "application/rss+xml, application/xml, text/xml",
       },
+      timeout: 10_000,
     });
   }
 
   start(): void {
     console.log("[RSSFetcher] Starting RSS polling (every 60s)");
-    setTimeout(() => this.pollAll(), 6_000); // delay to let server start
+    setTimeout(() => this.pollAll(), 6_000);
     this.interval = setInterval(() => this.pollAll(), 60_000);
   }
 
@@ -55,28 +61,28 @@ export class RSSFetcher {
       try {
         const parsed = await this.parser.parseURL(feed.url);
         console.log(
-          `[RSSFetcher] ${feed.source}: ${parsed.items.length} items from ${feed.url}`
+          `[RSSFetcher] ${feed.source}: ${parsed.items.length} items`
         );
 
         for (const item of parsed.items) {
-          const normalized: RSSRawNewsItem = {
+          const headline = item.title?.replace(/<!\[CDATA\[|\]\]>/g, "").trim() || "";
+          if (!headline) continue;
+
+          await this.onNewItem({
             source: feed.source,
-            headline: item.title || "",
+            headline,
             url: item.link || "",
             published_at:
               item.isoDate || item.pubDate || new Date().toISOString(),
-            raw_content: item.contentSnippet || item.content || "",
+            raw_content:
+              item.contentSnippet || item.content?.replace(/<[^>]+>/g, "").trim() || "",
             source_id:
-              item.guid || item.link || `${feed.source}-${item.title}`,
-          };
-
-          if (normalized.headline) {
-            await this.onNewItem(normalized);
-          }
+              item.guid || item.link || `${feed.source}-${headline.substring(0, 60)}`,
+          });
         }
       } catch (error: any) {
         console.error(
-          `[RSSFetcher] Error polling ${feed.url}:`,
+          `[RSSFetcher] Error polling ${feed.source}:`,
           error.message
         );
       }
