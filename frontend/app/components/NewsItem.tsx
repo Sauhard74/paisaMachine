@@ -44,9 +44,12 @@ const SENTIMENT_CONFIG = {
 export function NewsItem({ item }: { item: NewsItemData }) {
   const [expanded, setExpanded] = useState(false);
   const sent = SENTIMENT_CONFIG[item.sentiment];
-  const time = new Date(item.ingested_at).toLocaleTimeString("en-IN", {
-    hour12: false,
-  });
+  // Force IST display (UTC+5:30)
+  const dt = new Date(item.ingested_at.endsWith("Z") || item.ingested_at.includes("+") ? item.ingested_at : item.ingested_at + "Z");
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const ist = new Date(dt.getTime() + istOffset);
+  const time = ist.toISOString().slice(11, 19); // HH:MM:SS
+  const date = ist.toISOString().slice(5, 10); // MM-DD
   const sourceLabel = SOURCE_LABELS[item.source] || item.source;
   const isHighImpact = item.impact === "high";
 
@@ -58,7 +61,7 @@ export function NewsItem({ item }: { item: NewsItemData }) {
       onClick={() => setExpanded(!expanded)}
     >
       <div className="flex items-center gap-3 text-xs">
-        <span className="text-gray-500 font-mono w-16">{time}</span>
+        <span className="text-gray-500 font-mono w-28">{date} {time}</span>
         <span className="text-blue-400 font-mono w-16">{sourceLabel}</span>
         <span className="text-yellow-300 font-mono font-bold">
           {item.tickers.join(", ") || "\u2014"}

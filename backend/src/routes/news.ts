@@ -5,7 +5,7 @@ export function createNewsRouter(storage: StorageService): Router {
   const router = Router();
 
   router.get("/", (req: Request, res: Response) => {
-    const { sentiment, category, impact, source, ticker, search, limit } = req.query;
+    const { sentiment, category, impact, source, ticker, search, limit, before } = req.query;
 
     const items = storage.getRecent(
       Number(limit) || 50,
@@ -16,6 +16,7 @@ export function createNewsRouter(storage: StorageService): Router {
         source: source as string,
         ticker: ticker as string,
         search: search as string,
+        beforeId: before ? Number(before) : undefined,
       }
     );
 

@@ -28,6 +28,7 @@ export interface NewsFilters {
   source?: string;
   ticker?: string;
   search?: string;
+  beforeId?: number;
 }
 
 export class StorageService {
@@ -116,8 +117,12 @@ export class StorageService {
       query += " AND headline LIKE ?";
       params.push(`%${filters.search}%`);
     }
+    if (filters.beforeId) {
+      query += " AND id < ?";
+      params.push(filters.beforeId);
+    }
 
-    query += " ORDER BY ingested_at DESC LIMIT ?";
+    query += " ORDER BY id DESC LIMIT ?";
     params.push(limit);
 
     const rows = this.db.prepare(query).all(...params) as any[];
