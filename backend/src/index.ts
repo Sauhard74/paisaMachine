@@ -6,7 +6,9 @@ import { StorageService } from "./services/storage.js";
 import { DedupService } from "./services/dedup.js";
 import { LLMService } from "./services/llm.js";
 import { BroadcastService } from "./services/broadcast.js";
-import { ExchangeFetcher, RawNewsItem } from "./services/exchange-fetcher.js";
+import { ExchangeFetcher } from "./services/exchange-fetcher.js";
+import { RSSFetcher } from "./services/rss-fetcher.js";
+import { TwitterFetcher } from "./services/twitter-fetcher.js";
 import { createIngestRouter } from "./routes/ingest.js";
 import { createNewsRouter } from "./routes/news.js";
 import { createSSERouter } from "./routes/sse.js";
@@ -35,7 +37,14 @@ app.get("/api/health", (_req, res) => {
 });
 
 // --- Exchange Fetcher: process items through dedup -> LLM -> store -> broadcast ---
-async function processItem(raw: RawNewsItem) {
+async function processItem(raw: {
+  source: string;
+  headline: string;
+  url: string;
+  published_at: string;
+  raw_content: string;
+  source_id: string;
+}) {
   const { source, headline, url, published_at, raw_content, source_id } = raw;
 
   const isNew = await dedup.isNew(source, source_id || headline, url || "");
@@ -70,6 +79,12 @@ async function processItem(raw: RawNewsItem) {
 const fetcher = new ExchangeFetcher(processItem);
 fetcher.start();
 
+const rssFetcher = new RSSFetcher(processItem);
+rssFetcher.start();
+
+const twitterFetcher = new TwitterFetcher(processItem, process.env.TWITTER_BEARER_TOKEN || "");
+twitterFetcher.start();
+
 app.listen(PORT, () => {
   console.log(`PaisaMachine backend running on port ${PORT}`);
 });
@@ -77,6 +92,8 @@ app.listen(PORT, () => {
 // Graceful shutdown
 process.on("SIGINT", async () => {
   fetcher.stop();
+  rssFetcher.stop();
+  twitterFetcher.stop();
   storage.close();
   await dedup.close();
   process.exit(0);
