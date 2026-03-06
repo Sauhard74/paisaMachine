@@ -1,10 +1,12 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import { createHash } from "crypto";
 import { StorageService } from "./services/storage.js";
 import { DedupService } from "./services/dedup.js";
 import { LLMService } from "./services/llm.js";
 import { BroadcastService } from "./services/broadcast.js";
+import { ExchangeFetcher, RawNewsItem } from "./services/exchange-fetcher.js";
 import { createIngestRouter } from "./routes/ingest.js";
 import { createNewsRouter } from "./routes/news.js";
 import { createSSERouter } from "./routes/sse.js";
@@ -32,12 +34,49 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", clients: broadcast.clientCount });
 });
 
+// --- Exchange Fetcher: process items through dedup -> LLM -> store -> broadcast ---
+async function processItem(raw: RawNewsItem) {
+  const { source, headline, url, published_at, raw_content, source_id } = raw;
+
+  const isNew = await dedup.isNew(source, source_id || headline, url || "");
+  if (!isNew) return;
+
+  const llmResult = await llm.process(headline, raw_content || "");
+  const fingerprint = createHash("sha256")
+    .update(`${source}:${source_id || headline}`)
+    .digest("hex");
+
+  const item = {
+    source,
+    headline,
+    url: url || "",
+    summary: llmResult.summary,
+    raw_content: raw_content || "",
+    published_at: published_at || new Date().toISOString(),
+    tickers: llmResult.tickers,
+    sentiment: llmResult.sentiment,
+    category: llmResult.category,
+    impact: llmResult.impact,
+    key_figures: llmResult.key_figures,
+    source_id: source_id || "",
+    fingerprint,
+  };
+
+  const id = storage.insert(item);
+  broadcast.send({ id, ...item, ingested_at: new Date().toISOString() });
+  console.log(`Processed: [${source}] ${headline}`);
+}
+
+const fetcher = new ExchangeFetcher(processItem);
+fetcher.start();
+
 app.listen(PORT, () => {
   console.log(`PaisaMachine backend running on port ${PORT}`);
 });
 
 // Graceful shutdown
 process.on("SIGINT", async () => {
+  fetcher.stop();
   storage.close();
   await dedup.close();
   process.exit(0);
