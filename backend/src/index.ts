@@ -9,6 +9,9 @@ import { BroadcastService } from "./services/broadcast.js";
 import { ExchangeFetcher } from "./services/exchange-fetcher.js";
 import { RSSFetcher } from "./services/rss-fetcher.js";
 import { TwitterFetcher } from "./services/twitter-fetcher.js";
+import { PulseFetcher } from "./services/pulse-fetcher.js";
+import { TradingViewFetcher } from "./services/tradingview-fetcher.js";
+import { ScreenerFetcher } from "./services/screener-fetcher.js";
 import { createIngestRouter } from "./routes/ingest.js";
 import { createNewsRouter } from "./routes/news.js";
 import { createSSERouter } from "./routes/sse.js";
@@ -85,6 +88,15 @@ rssFetcher.start();
 const twitterFetcher = new TwitterFetcher(processItem, process.env.TWITTER_BEARER_TOKEN || "");
 twitterFetcher.start();
 
+const pulseFetcher = new PulseFetcher(processItem);
+pulseFetcher.start();
+
+const tvFetcher = new TradingViewFetcher(processItem);
+tvFetcher.start();
+
+const screenerFetcher = new ScreenerFetcher(processItem);
+screenerFetcher.start();
+
 app.listen(PORT, () => {
   console.log(`PaisaMachine backend running on port ${PORT}`);
 });
@@ -94,6 +106,9 @@ process.on("SIGINT", async () => {
   fetcher.stop();
   rssFetcher.stop();
   twitterFetcher.stop();
+  pulseFetcher.stop();
+  tvFetcher.stop();
+  screenerFetcher.stop();
   storage.close();
   await dedup.close();
   process.exit(0);
