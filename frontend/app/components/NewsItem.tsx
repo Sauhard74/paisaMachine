@@ -26,6 +26,7 @@ const SOURCE_LABELS: Record<string, string> = {
   economic_times: "EcoTimes",
   livemint: "Mint",
   ndtv_profit: "NDTV",
+  bloomberg: "Bloombg",
   tradingview: "TradView",
   screener: "Screener",
   twitter_redbox: "Redbox",

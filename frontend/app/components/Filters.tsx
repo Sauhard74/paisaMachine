@@ -22,6 +22,7 @@ const SOURCES = [
   { value: "economic_times", label: "Eco Times" },
   { value: "livemint", label: "LiveMint" },
   { value: "ndtv_profit", label: "NDTV" },
+  { value: "bloomberg", label: "Bloomberg" },
   { value: "tradingview", label: "TradingView" },
   { value: "screener", label: "Screener" },
   { value: "twitter_redbox", label: "Redbox" },

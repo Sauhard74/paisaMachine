@@ -20,6 +20,8 @@ export class RSSFetcher {
     { url: "https://www.livemint.com/rss/markets", source: "livemint" },
     // NDTV Profit - Latest
     { url: "https://feeds.feedburner.com/ndtvprofit-latest", source: "ndtv_profit" },
+    // Bloomberg - Markets
+    { url: "https://feeds.bloomberg.com/markets/news.rss", source: "bloomberg" },
   ];
 
   constructor(
