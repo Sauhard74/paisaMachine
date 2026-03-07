@@ -110,12 +110,14 @@ export class StorageService {
       params.push(filters.source);
     }
     if (filters.ticker) {
-      query += " AND tickers LIKE ?";
-      params.push(`%"${filters.ticker}"%`);
+      const escaped = filters.ticker.replace(/[%_\\]/g, "\\$&");
+      query += " AND tickers LIKE ? ESCAPE '\\'";
+      params.push(`%"${escaped}"%`);
     }
     if (filters.search) {
-      query += " AND headline LIKE ?";
-      params.push(`%${filters.search}%`);
+      const escaped = filters.search.replace(/[%_\\]/g, "\\$&");
+      query += " AND headline LIKE ? ESCAPE '\\'";
+      params.push(`%${escaped}%`);
     }
     if (filters.beforeId) {
       query += " AND id < ?";
@@ -131,6 +133,46 @@ export class StorageService {
       tickers: JSON.parse(row.tickers),
       key_figures: JSON.parse(row.key_figures),
     }));
+  }
+
+  getStats(): {
+    sentiment_counts: Record<string, number>;
+    category_counts: Record<string, number>;
+    velocity: { minute: string; count: number }[];
+    total_items: number;
+  } {
+    const sentimentRows = this.db
+      .prepare("SELECT sentiment, COUNT(*) as count FROM news_items GROUP BY sentiment")
+      .all() as { sentiment: string; count: number }[];
+    const sentiment_counts: Record<string, number> = {};
+    for (const row of sentimentRows) {
+      sentiment_counts[row.sentiment] = row.count;
+    }
+
+    const categoryRows = this.db
+      .prepare("SELECT category, COUNT(*) as count FROM news_items GROUP BY category")
+      .all() as { category: string; count: number }[];
+    const category_counts: Record<string, number> = {};
+    for (const row of categoryRows) {
+      category_counts[row.category] = row.count;
+    }
+
+    const velocity = this.db
+      .prepare(
+        "SELECT strftime('%Y-%m-%dT%H:%M:00Z', ingested_at) as minute, COUNT(*) as count FROM news_items WHERE ingested_at >= datetime('now', '-120 minutes') GROUP BY minute ORDER BY minute ASC"
+      )
+      .all() as { minute: string; count: number }[];
+
+    const totalRow = this.db
+      .prepare("SELECT COUNT(*) as count FROM news_items")
+      .get() as { count: number };
+
+    return {
+      sentiment_counts,
+      category_counts,
+      velocity,
+      total_items: totalRow.count,
+    };
   }
 
   close() {

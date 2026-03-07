@@ -18,8 +18,8 @@ export class RSSFetcher {
     { url: "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms", source: "economic_times" },
     // LiveMint - Markets
     { url: "https://www.livemint.com/rss/markets", source: "livemint" },
-    // NDTV Profit - Latest
-    { url: "https://feeds.feedburner.com/ndtvprofit-latest", source: "ndtv_profit" },
+    // Moneycontrol - Markets
+    { url: "https://www.moneycontrol.com/rss/marketreports.xml", source: "moneycontrol" },
     // Bloomberg - Markets
     { url: "https://feeds.bloomberg.com/markets/news.rss", source: "bloomberg" },
   ];

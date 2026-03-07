@@ -22,6 +22,16 @@ export function createIngestRouter(
         return;
       }
 
+      // Validate input sizes
+      if (typeof headline !== "string" || headline.length > 1000) {
+        res.status(400).json({ error: "Invalid headline" });
+        return;
+      }
+      if (raw_content && (typeof raw_content !== "string" || raw_content.length > 50000)) {
+        res.status(413).json({ error: "Content too large" });
+        return;
+      }
+
       // Dedup check
       const isNew = await dedup.isNew(source, source_id || headline, url || "");
       if (!isNew) {

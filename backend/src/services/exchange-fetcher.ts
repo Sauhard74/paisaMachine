@@ -4,7 +4,10 @@
  * Manages browser-like cookie sessions for NSE and BSE,
  * polls their APIs every 30 seconds, normalizes results,
  * and feeds them through the onNewItem callback.
+ * Uses proxy rotation when direct NSE access is blocked.
  */
+
+import { proxyPool } from "./proxy-pool.js";
 
 export interface RawNewsItem {
   source: "nse_json_api" | "bse_json_api";
@@ -31,6 +34,8 @@ export class ExchangeFetcher {
   private bseSession: CookieSession = { cookies: "", lastRefresh: 0 };
   private nseInterval: ReturnType<typeof setInterval> | null = null;
   private bseInterval: ReturnType<typeof setInterval> | null = null;
+  private nseDirectBlocked = false;
+  private bseDirectBlocked = false;
 
   constructor(private onNewItem: (item: RawNewsItem) => Promise<void>) {}
 
@@ -132,6 +137,7 @@ export class ExchangeFetcher {
   }
 
   private async refreshBSECookies(): Promise<void> {
+    // Try direct first
     try {
       console.log("[ExchangeFetcher] Refreshing BSE cookies...");
       const response = await fetch("https://www.bseindia.com", {
@@ -144,23 +150,38 @@ export class ExchangeFetcher {
         redirect: "follow",
       });
 
-      const newCookies = this.parseCookies(response);
-      this.bseSession.cookies = this.mergeCookies(
-        this.bseSession.cookies,
-        newCookies
-      );
-      this.bseSession.lastRefresh = Date.now();
-
+      if (response.ok || response.status === 302) {
+        const newCookies = this.parseCookies(response);
+        this.bseSession.cookies = this.mergeCookies(
+          this.bseSession.cookies,
+          newCookies
+        );
+        this.bseSession.lastRefresh = Date.now();
+        await response.text();
+        this.bseDirectBlocked = false;
+        console.log(
+          `[ExchangeFetcher] BSE cookies refreshed (status=${response.status}, cookies=${this.bseSession.cookies ? "present" : "empty"})`
+        );
+        return;
+      }
       await response.text();
-
-      console.log(
-        `[ExchangeFetcher] BSE cookies refreshed (status=${response.status}, cookies=${this.bseSession.cookies ? "present" : "empty"})`
-      );
     } catch (error: any) {
       console.error(
-        "[ExchangeFetcher] BSE cookie refresh failed:",
+        "[ExchangeFetcher] BSE direct cookie refresh failed:",
         error.message
       );
+    }
+
+    // Direct failed — try through proxy
+    this.bseDirectBlocked = true;
+    if (proxyPool.size > 0) {
+      try {
+        const resp = await proxyPool.proxyFetch("https://www.bseindia.com", { timeoutMs: 6000 });
+        if (resp.ok || resp.status === 302) {
+          this.bseSession.lastRefresh = Date.now();
+          console.log("[ExchangeFetcher] BSE cookie refresh succeeded via proxy");
+        }
+      } catch { /* proxy also failed */ }
     }
   }
 
@@ -172,12 +193,39 @@ export class ExchangeFetcher {
 
   private async pollNSE(): Promise<void> {
     try {
+      const url =
+        "https://www.nseindia.com/api/corporate-announcements?index=equities";
+
+      // If direct is blocked and we have proxies, go straight to proxy
+      if (this.nseDirectBlocked && proxyPool.size > 0) {
+        try {
+          const proxyResp = await proxyPool.proxyFetch(url, {
+            headers: {
+              Accept: "application/json",
+              Referer: "https://www.nseindia.com/companies-listing/corporate-filings-announcements",
+            },
+            timeoutMs: 10000,
+          });
+          if (proxyResp.ok) {
+            const data = await proxyResp.json();
+            const items: any[] = Array.isArray(data) ? data : data?.data ?? [];
+            console.log(`[ExchangeFetcher] NSE via proxy: fetched ${items.length} announcements`);
+            for (const item of items) {
+              try {
+                const normalized = this.normalizeNSEItem(item);
+                if (normalized) await this.onNewItem(normalized);
+              } catch (error: any) {
+                console.error("[ExchangeFetcher] Error processing NSE item:", error.message);
+              }
+            }
+            return;
+          }
+        } catch { /* proxy failed, try direct below */ }
+      }
+
       if (this.needsCookieRefresh(this.nseSession)) {
         await this.refreshNSECookies();
       }
-
-      const url =
-        "https://www.nseindia.com/api/corporate-announcements?index=equities";
 
       const response = await fetch(url, {
         headers: {
@@ -191,14 +239,46 @@ export class ExchangeFetcher {
         },
       });
 
-      // If auth fails, refresh cookies and retry once
+      // If auth fails, try proxy rotation
       if (response.status === 401 || response.status === 403) {
         console.warn(
-          `[ExchangeFetcher] NSE returned ${response.status}, refreshing cookies and retrying...`
+          `[ExchangeFetcher] NSE returned ${response.status}, trying proxy...`
         );
         await response.text(); // consume body
-        await this.refreshNSECookies();
+        this.nseDirectBlocked = true;
 
+        // Try via proxy pool
+        if (proxyPool.size > 0) {
+          try {
+            const proxyResp = await proxyPool.proxyFetch(url, {
+              headers: {
+                Accept: "application/json",
+                "Accept-Language": "en-US,en;q=0.5",
+                Referer: "https://www.nseindia.com/companies-listing/corporate-filings-announcements",
+              },
+              timeoutMs: 10000,
+            });
+            if (proxyResp.ok) {
+              const data = await proxyResp.json();
+              const items: any[] = Array.isArray(data) ? data : data?.data ?? [];
+              console.log(`[ExchangeFetcher] NSE via proxy: fetched ${items.length} announcements`);
+              for (const item of items) {
+                try {
+                  const normalized = this.normalizeNSEItem(item);
+                  if (normalized) await this.onNewItem(normalized);
+                } catch (error: any) {
+                  console.error("[ExchangeFetcher] Error processing NSE item:", error.message);
+                }
+              }
+              return;
+            }
+          } catch (err: any) {
+            console.error(`[ExchangeFetcher] NSE proxy fetch failed: ${err.message}`);
+          }
+        }
+
+        // Last resort: refresh cookies and retry direct
+        await this.refreshNSECookies();
         const retryResponse = await fetch(url, {
           headers: {
             "User-Agent": BROWSER_USER_AGENT,
@@ -219,6 +299,7 @@ export class ExchangeFetcher {
           return;
         }
 
+        this.nseDirectBlocked = false;
         await this.processNSEResponse(retryResponse);
         return;
       }
@@ -231,6 +312,7 @@ export class ExchangeFetcher {
         return;
       }
 
+      this.nseDirectBlocked = false;
       await this.processNSEResponse(response);
     } catch (error: any) {
       console.error("[ExchangeFetcher] NSE poll error:", error.message);
@@ -297,7 +379,7 @@ export class ExchangeFetcher {
       .join("\n");
 
     const url = attachmentFile
-      ? `https://www.nseindia.com${attachmentFile.startsWith("/") ? "" : "/"}${attachmentFile}`
+      ? (attachmentFile.startsWith("http") ? attachmentFile : `https://www.nseindia.com${attachmentFile.startsWith("/") ? "" : "/"}${attachmentFile}`)
       : `https://www.nseindia.com/companies-listing/corporate-filings-announcements`;
 
     return {
@@ -322,12 +404,40 @@ export class ExchangeFetcher {
 
   private async pollBSE(): Promise<void> {
     try {
+      const today = this.getTodayBSEFormat();
+      const url = `https://api.bseindia.com/BseIndiaAPI/api/AnnGetData/w?strCat=-1&strPrevDate=${today}&strScrip=&strSearch=P&strToDate=${today}&strType=C`;
+
+      // If direct is blocked and we have proxies, go straight to proxy
+      if (this.bseDirectBlocked && proxyPool.size > 0) {
+        try {
+          const proxyResp = await proxyPool.proxyFetch(url, {
+            headers: {
+              Accept: "application/json",
+              Referer: "https://www.bseindia.com/",
+              Origin: "https://www.bseindia.com",
+            },
+            timeoutMs: 10000,
+          });
+          if (proxyResp.ok) {
+            const data = await proxyResp.json();
+            const items: any[] = Array.isArray(data) ? data : data?.Table ?? data?.data ?? [];
+            console.log(`[ExchangeFetcher] BSE via proxy: fetched ${items.length} announcements`);
+            for (const item of items) {
+              try {
+                const normalized = this.normalizeBSEItem(item);
+                if (normalized) await this.onNewItem(normalized);
+              } catch (error: any) {
+                console.error("[ExchangeFetcher] Error processing BSE item:", error.message);
+              }
+            }
+            return;
+          }
+        } catch { /* proxy failed, try direct below */ }
+      }
+
       if (this.needsCookieRefresh(this.bseSession)) {
         await this.refreshBSECookies();
       }
-
-      const today = this.getTodayBSEFormat();
-      const url = `https://api.bseindia.com/BseIndiaAPI/api/AnnGetData/w?strCat=-1&strPrevDate=${today}&strScrip=&strSearch=P&strToDate=${today}&strType=C`;
 
       const response = await fetch(url, {
         headers: {
@@ -339,14 +449,45 @@ export class ExchangeFetcher {
         },
       });
 
-      // If auth fails, refresh cookies and retry once
+      // If auth fails, try proxy rotation
       if (response.status === 401 || response.status === 403) {
         console.warn(
-          `[ExchangeFetcher] BSE returned ${response.status}, refreshing cookies and retrying...`
+          `[ExchangeFetcher] BSE returned ${response.status}, trying proxy...`
         );
         await response.text();
-        await this.refreshBSECookies();
+        this.bseDirectBlocked = true;
 
+        if (proxyPool.size > 0) {
+          try {
+            const proxyResp = await proxyPool.proxyFetch(url, {
+              headers: {
+                Accept: "application/json",
+                Referer: "https://www.bseindia.com/",
+                Origin: "https://www.bseindia.com",
+              },
+              timeoutMs: 10000,
+            });
+            if (proxyResp.ok) {
+              const data = await proxyResp.json();
+              const items: any[] = Array.isArray(data) ? data : data?.Table ?? data?.data ?? [];
+              console.log(`[ExchangeFetcher] BSE via proxy: fetched ${items.length} announcements`);
+              for (const item of items) {
+                try {
+                  const normalized = this.normalizeBSEItem(item);
+                  if (normalized) await this.onNewItem(normalized);
+                } catch (error: any) {
+                  console.error("[ExchangeFetcher] Error processing BSE item:", error.message);
+                }
+              }
+              return;
+            }
+          } catch (err: any) {
+            console.error(`[ExchangeFetcher] BSE proxy fetch failed: ${err.message}`);
+          }
+        }
+
+        // Last resort: refresh cookies and retry direct
+        await this.refreshBSECookies();
         const retryResponse = await fetch(url, {
           headers: {
             "User-Agent": BROWSER_USER_AGENT,
@@ -365,6 +506,7 @@ export class ExchangeFetcher {
           return;
         }
 
+        this.bseDirectBlocked = false;
         await this.processBSEResponse(retryResponse);
         return;
       }
@@ -377,6 +519,7 @@ export class ExchangeFetcher {
         return;
       }
 
+      this.bseDirectBlocked = false;
       await this.processBSEResponse(response);
     } catch (error: any) {
       console.error("[ExchangeFetcher] BSE poll error:", error.message);
