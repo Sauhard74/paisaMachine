@@ -378,8 +378,9 @@ export class ExchangeFetcher {
       .filter(Boolean)
       .join("\n");
 
-    const url = attachmentFile
-      ? (attachmentFile.startsWith("http") ? attachmentFile : `https://www.nseindia.com${attachmentFile.startsWith("/") ? "" : "/"}${attachmentFile}`)
+    const cleanedAttachment = attachmentFile ? attachmentFile.trim() : "";
+    const url = cleanedAttachment
+      ? (cleanedAttachment.startsWith("http") ? cleanedAttachment : `https://www.nseindia.com/${cleanedAttachment.replace(/^\/+/, "")}`)
       : `https://www.nseindia.com/companies-listing/corporate-filings-announcements`;
 
     return {

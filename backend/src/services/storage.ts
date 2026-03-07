@@ -124,7 +124,7 @@ export class StorageService {
       params.push(filters.beforeId);
     }
 
-    query += " ORDER BY id DESC LIMIT ?";
+    query += " ORDER BY published_at DESC, id DESC LIMIT ?";
     params.push(limit);
 
     const rows = this.db.prepare(query).all(...params) as any[];

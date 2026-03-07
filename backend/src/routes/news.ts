@@ -3,7 +3,7 @@ import { StorageService } from "../services/storage.js";
 
 const VALID_SENTIMENTS = ["positive", "negative", "neutral"];
 const VALID_IMPACTS = ["high", "medium", "low"];
-const MAX_LIMIT = 500;
+const MAX_LIMIT = 2000;
 const MAX_SEARCH_LENGTH = 100;
 
 export function createNewsRouter(storage: StorageService): Router {

@@ -10,10 +10,18 @@ export class DedupService {
 
   constructor(redisUrl?: string) {
     if (redisUrl) {
-      this.redis = new Redis(redisUrl);
+      this.redis = new Redis(redisUrl, { retryStrategy: (times) => Math.min(times * 500, 5000) });
       this.redis.on("error", () => {
-        console.warn("Redis connection failed, falling back to in-memory dedup");
-        this.useMemory = true;
+        if (!this.useMemory) {
+          console.warn("Redis connection failed, falling back to in-memory dedup");
+          this.useMemory = true;
+        }
+      });
+      this.redis.on("connect", () => {
+        if (this.useMemory) {
+          console.log("Redis reconnected, switching back from in-memory dedup");
+          this.useMemory = false;
+        }
       });
       this.useMemory = false;
     } else {
