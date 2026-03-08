@@ -123,11 +123,19 @@ export class PulseFetcher {
    * The text content contains relative times like "3.5 hours ago".
    */
   private parseTime(dateTitle: string, dateText: string): string {
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
     // Try the title attribute first (e.g. "11:35 PM, 06 Mar 2026")
     if (dateTitle) {
       try {
         const d = new Date(dateTitle);
-        if (!isNaN(d.getTime())) return d.toISOString();
+        if (!isNaN(d.getTime())) {
+          // Zerodha Pulse dates are IST without timezone indicator
+          if (!/[Zz]|\+|\-\d{2}:?\d{2}$/.test(dateTitle.trim())) {
+            return new Date(d.getTime() - IST_OFFSET_MS).toISOString();
+          }
+          return d.toISOString();
+        }
       } catch {}
     }
 

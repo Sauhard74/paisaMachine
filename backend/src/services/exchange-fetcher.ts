@@ -608,14 +608,7 @@ export class ExchangeFetcher {
   private parseDate(dateStr: string): string {
     if (!dateStr) return new Date().toISOString();
 
-    try {
-      const parsed = new Date(dateStr);
-      if (!isNaN(parsed.getTime())) {
-        return parsed.toISOString();
-      }
-    } catch {
-      // Fall through to default
-    }
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
     // Try DD-MM-YYYY or DD/MM/YYYY formats common in Indian exchanges
     const match = dateStr.match(
@@ -624,16 +617,32 @@ export class ExchangeFetcher {
     if (match) {
       const [, day, month, year, hour, minute, second] = match;
       const d = new Date(
-        Number(year),
-        Number(month) - 1,
-        Number(day),
-        Number(hour || 0),
-        Number(minute || 0),
-        Number(second || 0)
+        Date.UTC(
+          Number(year),
+          Number(month) - 1,
+          Number(day),
+          Number(hour || 0),
+          Number(minute || 0),
+          Number(second || 0)
+        ) - IST_OFFSET_MS
       );
       if (!isNaN(d.getTime())) {
         return d.toISOString();
       }
+    }
+
+    try {
+      // For other formats, check if it lacks timezone info (assume IST)
+      const parsed = new Date(dateStr);
+      if (!isNaN(parsed.getTime())) {
+        // If no timezone indicator, treat as IST
+        if (!/[Zz]|\+|\-\d{2}:?\d{2}$/.test(dateStr.trim())) {
+          return new Date(parsed.getTime() - IST_OFFSET_MS).toISOString();
+        }
+        return parsed.toISOString();
+      }
+    } catch {
+      // Fall through to default
     }
 
     return new Date().toISOString();
