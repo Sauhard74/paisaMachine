@@ -1,3 +1,0 @@
-module.exports=[18469,(a,b,c)=>{let{createClientModuleProxy:d}=a.r(79924);a.n(d("[project]/internship/paisaMachine/frontend/node_modules/next/dist/client/components/builtin/global-error.js <module evaluation>"))},92036,(a,b,c)=>{let{createClientModuleProxy:d}=a.r(79924);a.n(d("[project]/internship/paisaMachine/frontend/node_modules/next/dist/client/components/builtin/global-error.js"))},7083,a=>{"use strict";a.i(18469);var b=a.i(92036);a.n(b)}];
-
-//# sourceMappingURL=c6f09_next_dist_client_components_builtin_global-error_1cbe4269.js.map

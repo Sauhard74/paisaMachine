@@ -1,6 +1,6 @@
 import { NewsItemData, IndexData, QuoteData, MarketStatusData, StatsData } from "./types";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 
 /** Validate stock symbol format */
 export function isValidSymbol(s: string): boolean {

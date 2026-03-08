@@ -1,9 +1,17 @@
 import type { NextConfig } from "next";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+const INTERNAL_BACKEND = process.env.BACKEND_INTERNAL_URL || "http://localhost:3001";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  async rewrites() {
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${INTERNAL_BACKEND}/api/:path*`,
+      },
+    ];
+  },
   async headers() {
     return [
       {
@@ -17,7 +25,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
               "font-src 'self'",
-              `connect-src 'self' ${BACKEND_URL}`,
+              "connect-src 'self'",
               "frame-ancestors 'none'",
             ].join("; "),
           },

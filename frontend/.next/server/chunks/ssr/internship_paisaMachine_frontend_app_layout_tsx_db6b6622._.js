@@ -1,3 +1,0 @@
-module.exports=[74296,a=>{"use strict";var b=a.i(5741);function c({children:a}){return(0,b.jsxs)("html",{lang:"en",className:"dark",children:[(0,b.jsx)("head",{children:(0,b.jsx)("link",{href:"https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap",rel:"stylesheet"})}),(0,b.jsx)("body",{className:"bg-[#080c08] text-[#e5e7eb] antialiased font-mono",children:a})]})}a.s(["default",()=>c,"metadata",0,{title:"PaisaMachine - Trader Dashboard",description:"Ultra-low latency stock news aggregation & trading dashboard"}])}];
-
-//# sourceMappingURL=internship_paisaMachine_frontend_app_layout_tsx_db6b6622._.js.map
