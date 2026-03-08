@@ -1,0 +1,16 @@
+name: Keep Alive
+
+on:
+  schedule:
+    - cron: "*/14 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend
+        run: curl -sf https://paisamachine-backend.onrender.com/api/stats || true
+
+      - name: Ping frontend
+        run: curl -sf https://paisamachine-frontend.onrender.com/ || true
