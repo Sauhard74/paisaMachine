@@ -320,7 +320,7 @@ export class ExchangeFetcher {
   }
 
   private async processNSEResponse(response: Response): Promise<void> {
-    const data = await response.json();
+    const data: any = await response.json();
 
     // Update cookies from response if any
     const newCookies = this.parseCookies(response);
@@ -528,7 +528,7 @@ export class ExchangeFetcher {
   }
 
   private async processBSEResponse(response: Response): Promise<void> {
-    const data = await response.json();
+    const data: any = await response.json();
 
     // Update cookies from response if any
     const newCookies = this.parseCookies(response);

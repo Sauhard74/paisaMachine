@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response as ExpressResponse } from "express";
 import { proxyPool } from "../services/proxy-pool.js";
 
 // Security: Input validation helpers
@@ -38,7 +38,7 @@ class SimpleCache {
 }
 
 // --------------- Fetch helpers ---------------
-async function fetchWithTimeout(url: string, headers: Record<string, string>, timeoutMs = 10000): Promise<Response> {
+async function fetchWithTimeout(url: string, headers: Record<string, string>, timeoutMs = 10000): Promise<globalThis.Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -243,7 +243,7 @@ export function createMarketRouter(): Router {
   const cache = new SimpleCache();
 
   // GET /indices — try NSE first, fallback to Yahoo
-  router.get("/indices", async (_req: Request, res: Response) => {
+  router.get("/indices", async (_req: Request, res: ExpressResponse) => {
     try {
       const CACHE_KEY = "indices";
       const cached = cache.get(CACHE_KEY, 30_000);
@@ -306,9 +306,9 @@ export function createMarketRouter(): Router {
   });
 
   // GET /quote/:symbol — Yahoo Finance primary
-  router.get("/quote/:symbol", async (req: Request, res: Response) => {
+  router.get("/quote/:symbol", async (req: Request, res: ExpressResponse) => {
     try {
-      const symbol = req.params.symbol.toUpperCase();
+      const symbol = (req.params.symbol as string).toUpperCase();
       if (!validateSymbol(symbol)) { res.status(400).json({ error: "Invalid symbol" }); return; }
       const CACHE_KEY = `quote:${symbol}`;
       const cached = cache.get(CACHE_KEY, 30_000);
@@ -346,9 +346,9 @@ export function createMarketRouter(): Router {
   });
 
   // GET /quote-fast/:symbol — fast quote from v8 only (no crumb, ~200ms)
-  router.get("/quote-fast/:symbol", async (req: Request, res: Response) => {
+  router.get("/quote-fast/:symbol", async (req: Request, res: ExpressResponse) => {
     try {
-      const symbol = req.params.symbol.toUpperCase();
+      const symbol = (req.params.symbol as string).toUpperCase();
       if (!validateSymbol(symbol)) { res.status(400).json({ error: "Invalid symbol" }); return; }
       const CACHE_KEY = `quote-fast:${symbol}`;
       const cached = cache.get(CACHE_KEY, 10_000);
@@ -391,9 +391,9 @@ export function createMarketRouter(): Router {
   });
 
   // GET /fundamentals/:symbol — v10 data (PE, EPS, etc)
-  router.get("/fundamentals/:symbol", async (req: Request, res: Response) => {
+  router.get("/fundamentals/:symbol", async (req: Request, res: ExpressResponse) => {
     try {
-      const symbol = req.params.symbol.toUpperCase();
+      const symbol = (req.params.symbol as string).toUpperCase();
       if (!validateSymbol(symbol)) { res.status(400).json({ error: "Invalid symbol" }); return; }
       const CACHE_KEY = `fundamentals:${symbol}`;
       const cached = cache.get(CACHE_KEY, 60_000);
@@ -438,8 +438,8 @@ export function createMarketRouter(): Router {
   });
 
   // GET /chart-stream/:symbol — SSE for live chart updates
-  router.get("/chart-stream/:symbol", (req: Request, res: Response) => {
-    const symbol = req.params.symbol.toUpperCase();
+  router.get("/chart-stream/:symbol", (req: Request, res: ExpressResponse) => {
+    const symbol = (req.params.symbol as string).toUpperCase();
     if (!validateSymbol(symbol)) { res.status(400).json({ error: "Invalid symbol" }); return; }
     const interval = (req.query.interval as string) || "1m";
     if (!VALID_INTERVALS.includes(interval)) { res.status(400).json({ error: "Invalid interval" }); return; }
@@ -501,9 +501,9 @@ export function createMarketRouter(): Router {
   });
 
   // GET /quote-full/:symbol — Yahoo Finance + NSE fallback for extra data
-  router.get("/quote-full/:symbol", async (req: Request, res: Response) => {
+  router.get("/quote-full/:symbol", async (req: Request, res: ExpressResponse) => {
     try {
-      const symbol = req.params.symbol.toUpperCase();
+      const symbol = (req.params.symbol as string).toUpperCase();
       if (!validateSymbol(symbol)) { res.status(400).json({ error: "Invalid symbol" }); return; }
       const CACHE_KEY = `quote-full:${symbol}`;
       const cached = cache.get(CACHE_KEY, 15_000);
@@ -613,9 +613,9 @@ export function createMarketRouter(): Router {
   });
 
   // GET /chart/:symbol — OHLC data for lightweight-charts
-  router.get("/chart/:symbol", async (req: Request, res: Response) => {
+  router.get("/chart/:symbol", async (req: Request, res: ExpressResponse) => {
     try {
-      const symbol = req.params.symbol.toUpperCase();
+      const symbol = (req.params.symbol as string).toUpperCase();
       if (!validateSymbol(symbol)) { res.status(400).json({ error: "Invalid symbol" }); return; }
       const interval = (req.query.interval as string) || "15m";
       const range = (req.query.range as string) || "1d";
@@ -656,7 +656,7 @@ export function createMarketRouter(): Router {
   });
 
   // GET /status — try NSE, fallback to simple response
-  router.get("/status", async (_req: Request, res: Response) => {
+  router.get("/status", async (_req: Request, res: ExpressResponse) => {
     try {
       const CACHE_KEY = "status";
       const cached = cache.get(CACHE_KEY, 60_000);
@@ -704,7 +704,7 @@ export function createMarketRouter(): Router {
   });
 
   // GET /search?q=reliance — stock symbol autocomplete (Yahoo + NSE fallback)
-  router.get("/search", async (req: Request, res: Response) => {
+  router.get("/search", async (req: Request, res: ExpressResponse) => {
     try {
       const q = (req.query.q as string || "").trim();
       if (q.length < 2 || q.length > 50) return res.json([]);

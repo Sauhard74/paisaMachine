@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import Redis from "ioredis";
+import { Redis } from "ioredis";
 
 const TTL_SECONDS = 24 * 60 * 60; // 24 hours
 
@@ -10,7 +10,7 @@ export class DedupService {
 
   constructor(redisUrl?: string) {
     if (redisUrl) {
-      this.redis = new Redis(redisUrl, { retryStrategy: (times) => Math.min(times * 500, 5000) });
+      this.redis = new Redis(redisUrl, { retryStrategy: (times: number) => Math.min(times * 500, 5000) });
       this.redis.on("error", () => {
         if (!this.useMemory) {
           console.warn("Redis connection failed, falling back to in-memory dedup");

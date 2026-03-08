@@ -66,7 +66,7 @@ export class TwitterFetcher {
         return;
       }
 
-      const data = await response.json();
+      const data: any = await response.json();
       const tweets: any[] = data.data || [];
       const users: any[] = data.includes?.users || [];
 
