@@ -64,7 +64,7 @@ export function createIngestRouter(
         fingerprint,
       };
 
-      const id = storage.insert(item);
+      const id = await storage.insert(item);
 
       // Broadcast via SSE
       broadcast.send({ id, ...item, ingested_at: new Date().toISOString() });

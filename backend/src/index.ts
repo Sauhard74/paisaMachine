@@ -25,7 +25,7 @@ const PORT = Number(process.env.PORT) || 3001;
 const MAX_CONCURRENT_LLM = 10;
 
 // Initialize services
-const storage = new StorageService("paisamachine.db");
+const storage = new StorageService();
 const dedup = new DedupService(process.env.REDIS_URL);
 const llm = new LLMService(process.env.ANTHROPIC_API_KEY!);
 const broadcast = new BroadcastService();
@@ -112,7 +112,7 @@ async function processOne(raw: QueueItem) {
       fingerprint,
     };
 
-    const id = storage.insert(item);
+    const id = await storage.insert(item);
     broadcast.send({ id, ...item, ingested_at: new Date().toISOString() });
     console.log(`[${source}] ${headline.substring(0, 80)}`);
   } catch (error: any) {

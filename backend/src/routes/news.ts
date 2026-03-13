@@ -9,7 +9,7 @@ const MAX_SEARCH_LENGTH = 100;
 export function createNewsRouter(storage: StorageService): Router {
   const router = Router();
 
-  router.get("/", (req: Request, res: Response) => {
+  router.get("/", async (req: Request, res: Response) => {
     const { sentiment, category, impact, source, ticker, search, limit, before } = req.query;
 
     // Validate filter values
@@ -33,7 +33,7 @@ export function createNewsRouter(storage: StorageService): Router {
     // Clamp limit
     const clampedLimit = Math.min(Math.max(Number(limit) || 50, 1), MAX_LIMIT);
 
-    const items = storage.getRecent(clampedLimit, {
+    const items = await storage.getRecent(clampedLimit, {
       sentiment: sentiment as string,
       category: category as string,
       impact: impact as string,
